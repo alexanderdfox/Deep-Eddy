@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collatz Colony - 2D HTML Simulation</title>
+    <style>
+        body {
+            background-color: #0c1018;
+            color: #e0e0e0;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        h1 {
+            font-size: 1.2rem;
+            margin: 5px 0;
+            color: #ffcc00;
+            text-align: center;
+        }
+        #ui {
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            color: #88ccff;
+            text-align: center;
+        }
+        canvas {
+            border: 2px solid #283246;
+            background-color: #0c1018;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+        .instructions {
+            font-size: 0.8rem;
+            margin-top: 8px;
+            color: #a0a0a0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>👑 COLLATZ COLONY: QUANTUM FORMICARIUM 👑</h1>
+    <div id="ui">Status: Initializing Colony... | Rain: OFF | Wind: 0.00</div>
+    <canvas id="simCanvas" width="700" height="560"></canvas>
+    <div class="instructions">
+        [Click]: Drop Food Pellet | [R]: Toggle Rain Storm | [Space]: Manual Queen Pulse
+    </div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const ui = document.getElementById('ui');
+
+    const WIDTH = 70;
+    const HEIGHT = 28;
+    const CELL_SIZE = 10; // 700x560 canvas
+
+    // Cell Types: 0: Empty, 1: Glass, 2-5: Sand Strata, 6: Food, 7: Water
+    let grid = Array(HEIGHT).fill(0).map(() => Array(WIDTH).fill(0));
+    
+    // Colors for rendering
+    const COLORS = {
+        empty: '#0c1018',
+        glass: '#283246',
+        sand0: '#f0be28', // Gold Amber
+        sand1: '#e16923', // Terracotta
+        sand2: '#b42d2d', // Deep Red
+        sand3: '#6e230f', // Soil
+        food: '#32ff32',
+        water: '#50a0ff',
+        queen: '#ff00ff',
+        antNormal: '#ff7828',
+        antCarrying: '#00f0ff',
+        antFood: '#ff007f',
+        antStagnant: '#6464dc'
+    };
+
+    // Initialize Grid
+    function initGrid() {
+        for (let y = 0; y < HEIGHT; y++) {
+            for (let x = 0; x < WIDTH; x++) {
+                if (x === 0 || x === WIDTH - 1 || y === HEIGHT - 1) {
+                    grid[y][x] = 1; // Glass
+                } else if (y >= 9) {
+                    if (y <= 12) grid[y][x] = 2;
+                    else if (y <= 16) grid[y][x] = 3;
+                    else if (y <= 20) grid[y][x] = 4;
+                    else grid[y][x] = 5;
+                } else {
+                    grid[y][x] = 0;
+                }
+            }
+        }
+    }
+    initGrid();
+
+    function getSurfaceY(x) {
+        for (let y = 0; y < HEIGHT; y++) {
+            if (grid[y][x] !== 0 && grid[y][x] !== 1) return y;
+        }
+        return HEIGHT - 2;
+    }
+
+    // Ant Class
+    class Ant {
+        constructor(x, y, seed) {
+            this.x = x;
+            this.y = y;
+            this.dx = Math.random() < 0.5 ? 0.3 : -0.3;
+            this.dy = 0.1;
+            this.carrying = null;
+            this.hasFood = false;
+            this.collatzVal = seed;
+            this.stepsInState = 0;
+            this.tunnelPersistence = 0;
+            this.stagnant = false;
+        }
+    }
+
+    let ants = [];
+    let cx = WIDTH / 2;
+    for (let i = 0; i < 14; i++) {
+        let ax = cx + (i - 7) * 1.5;
+        let ay = getSurfaceY(Math.round(ax)) - 1;
+        ants.push(new Ant(ax, ay, (i + 4) * 3));
+    }
+
+    // Queen AI
+    let queen = {
+        x: WIDTH / 2,
+        y: 6,
+        status: "Patrolling Surface"
+    };
+
+    let globalStep = 0;
+    let isRaining = false;
+    let windForce = 0.0;
+
+    // Mouse input for dropping food
+    canvas.addEventListener('click', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = Math.floor((e.clientX - rect.left) / CELL_SIZE);
+        const mouseY = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+        if (mouseX > 0 && mouseX < WIDTH - 1 && mouseY > 0 && mouseY < HEIGHT - 1) {
+            if (grid[mouseY][mouseX] === 0) {
+                grid[mouseY][mouseX] = 6; // Food
+            }
+        }
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'r' || e.key === 'R') {
+            isRaining = !isRaining;
+        } else if (e.key === ' ') {
+            // Manual pulse
+            ants.forEach(ant => {
+                let dist = Math.hypot(ant.x - queen.x, ant.y - queen.y);
+                if (dist < 6.0) {
+                    ant.stagnant = false;
+                    ant.collatzVal = Math.floor(Math.random() * 30) + 10;
+                }
+            });
+        }
+    });
+
+    function update() {
+        globalStep++;
+        windForce = Math.sin(globalStep * 0.03) * 0.25 + (Math.random() * 0.4 - 0.2);
+
+        if (globalStep === 250 || globalStep === 700) isRaining = true;
+        if (globalStep === 500 || globalStep === 1100) isRaining = false;
+
+        // Queen AI Logic
+        let stagnantAnts = ants.filter(a => a.stagnant);
+        if (stagnantAnts.length > 0) {
+            queen.status = `Rescuing ${stagnantAnts.length} trapped ant(s)`;
+            let target = stagnantAnts[0];
+            if (Math.abs(queen.x - target.x) > 1) queen.x += queen.x < target.x ? 0.8 : -0.8;
+            if (Math.abs(queen.y - target.y) > 1) queen.y += queen.y < target.y ? 0.8 : -0.8;
+
+            let dist = Math.hypot(queen.x - target.x, queen.y - target.y);
+            if (dist < 6.0) {
+                ants.forEach(ant => {
+                    let d = Math.hypot(ant.x - queen.x, ant.y - queen.y);
+                    if (d < 6.0) {
+                        ant.stagnant = false;
+                        ant.collatzVal = Math.floor(Math.random() * 30) + 10;
+                    }
+                });
+            }
+        } else {
+            queen.status = "Autonomous Colony Patrol";
+            let targetX = WIDTH / 2 + Math.sin(globalStep * 0.02) * 20;
+            queen.x += (targetX - queen.x) * 0.1;
+            queen.y += (5 - queen.y) * 0.1;
+
+            if (globalStep % 140 === 0) {
+                let fx = Math.round(queen.x);
+                let fy = getSurfaceY(fx) - 1;
+                if (fx > 2 && fx < WIDTH - 2 && fy > 0 && grid[fy][fx] === 0) {
+                    grid[fy][fx] = 6;
+                }
+            }
+        }
+        queen.x = Math.max(3, Math.min(WIDTH - 4, queen.x));
+        queen.y = Math.max(2, Math.min(HEIGHT - 4, queen.y));
+
+        // Weather rain spawning
+        if (isRaining) {
+            for (let i = 0; i < 2; i++) {
+                let rx = Math.floor(Math.random() * (WIDTH - 4)) + 2;
+                if (grid[1][rx] === 0) grid[1][rx] = 7; // Water
+            }
+        }
+
+        // Ant Collatz AI
+        ants.forEach(ant => {
+            if (ant.stagnant) return;
+
+            ant.stepsInState++;
+            ant.tunnelPersistence = Math.max(0, ant.tunnelPersistence - 1);
+
+            if (ant.collatzVal <= 1) {
+                ant.collatzVal = 1;
+                ant.stagnant = true;
+            } else if (ant.collatzVal % 2 === 0) {
+                ant.collatzVal = Math.floor(ant.collatzVal / 2);
+            } else {
+                ant.collatzVal = ant.collatzVal * 3 + 1;
+            }
+
+            if (ant.collatzVal % 2 === 0) {
+                if (ant.tunnelPersistence === 0) {
+                    ant.dy = 0.25 + (ant.collatzVal % 3) * 0.05;
+                    ant.dx = Math.floor(ant.collatzVal / 2) % 2 === 0 ? 0.35 : -0.35;
+                    ant.tunnelPersistence = 25 + Math.floor(Math.random() * 20);
+                }
+            } else {
+                if (ant.tunnelPersistence === 0) {
+                    ant.dy = -0.35;
+                    ant.dx = (Math.random() * 20 - 10) * 0.04;
+                    ant.tunnelPersistence = 15 + Math.floor(Math.random() * 15);
+                }
+            }
+
+            ant.dx += windForce * 0.05;
+            ant.dx = Math.max(-0.8, Math.min(0.8, ant.dx));
+
+            ant.x += ant.dx;
+            ant.y += ant.dy;
+
+            let ix = Math.round(ant.x);
+            let iy = Math.round(ant.y);
+
+            if (ix <= 1 || ix >= WIDTH - 2) {
+                ant.dx *= -1;
+                ant.x = Math.max(2, Math.min(WIDTH - 3, ant.x));
+                ant.tunnelPersistence = 0;
+            }
+            if (iy <= 1 || iy >= HEIGHT - 2) {
+                ant.dy *= -1;
+                ant.y = Math.max(2, Math.min(HEIGHT - 3, ant.y));
+                ant.tunnelPersistence = 0;
+            }
+
+            if (ix > 0 && ix < WIDTH && iy > 0 && iy < HEIGHT) {
+                if (ant.carrying === null) {
+                    if (grid[iy][ix] === 6) { // Food
+                        grid[iy][ix] = 0;
+                        ant.hasFood = true;
+                        ant.collatzVal = 12;
+                        ant.stagnant = false;
+                    }
+                    let cellVal = grid[iy][ix];
+                    if (cellVal >= 2 && cellVal <= 5) {
+                        if (ant.collatzVal % 2 === 0 || iy > 10) {
+                            ant.carrying = cellVal;
+                            grid[iy][ix] = 0;
+
+                            // Organic tunnel carving
+                            for (let cy = Math.max(1, iy - 1); cy <= Math.min(HEIGHT - 2, iy + 1); cy++) {
+                                for (let cx_off = -1; cx_off <= 1; cx_off++) {
+                                    let nx = ix + cx_off;
+                                    if (nx > 0 && nx < WIDTH - 1 && grid[cy][nx] >= 2 && grid[cy][nx] <= 5) {
+                                        if (Math.random() < 0.5) grid[cy][nx] = 0;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    let surfaceY = getSurfaceY(ix);
+                    let towerOffset = (ant.collatzVal % 3) + 1;
+                    let buildY = Math.max(2, Math.min(HEIGHT - 2, surfaceY - towerOffset));
+                    if (grid[buildY][ix] === 0) {
+                        grid[buildY][ix] = ant.carrying;
+                        ant.carrying = null;
+                    }
+                }
+            }
+        });
+
+        // Cellular Automata Physics (Sand & Water Gravity)
+        for (let y = HEIGHT - 3; y >= 0; y--) {
+            for (let x = 1; x < WIDTH - 1; x++) {
+                let cell = grid[y][x];
+                if (cell >= 2 && cell <= 5) { // Sand
+                    if (grid[y + 1][x] === 0) {
+                        grid[y + 1][x] = cell;
+                        grid[y][x] = 0;
+                    } else {
+                        let leftOk = (x > 1 && grid[y + 1][x - 1] === 0 && grid[y][x - 1] === 0);
+                        let rightOk = (x < WIDTH - 2 && grid[y + 1][x + 1] === 0 && grid[y][x + 1] === 0);
+                        if (leftOk && rightOk) {
+                            let targetX = (windForce < -0.1) ? x - 1 : (windForce > 0.1 ? x + 1 : ((globalStep + x) % 2 === 0 ? x - 1 : x + 1));
+                            grid[y + 1][targetX] = cell;
+                            grid[y][x] = 0;
+                        } else if (leftOk) {
+                            grid[y + 1][x - 1] = cell;
+                            grid[y][x] = 0;
+                        } else if (rightOk) {
+                            grid[y + 1][x + 1] = cell;
+                            grid[y][x] = 0;
+                        }
+                    }
+                } else if (cell === 7) { // Water physics
+                    grid[y][x] = 0;
+                    let ny = y + 1;
+                    if (ny < HEIGHT - 1 && grid[ny][x] === 0) {
+                        grid[ny][x] = 7;
+                    } else if (x > 1 && grid[y][x - 1] === 0) {
+                        grid[y][x - 1] = 7;
+                    } else if (x < WIDTH - 2 && grid[y][x + 1] === 0) {
+                        grid[y][x + 1] = 7;
+                    }
+                }
+            }
+        }
+
+        ui.innerText = `Status: ${queen.status} | Rain: ${isRaining ? '🌧️ ACTIVE' : '☀️ CLEAR'} | Wind: ${windForce.toFixed(2)}`;
+    }
+
+    function render() {
+        ctx.fillStyle = COLORS.empty;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Render grid cells
+        for (let y = 0; y < HEIGHT; y++) {
+            for (let x = 0; x < WIDTH; x++) {
+                let cell = grid[y][x];
+                if (cell === 0) continue;
+
+                if (cell === 1) ctx.fillStyle = COLORS.glass;
+                else if (cell === 2) ctx.fillStyle = COLORS.sand0;
+                else if (cell === 3) ctx.fillStyle = COLORS.sand1;
+                else if (cell === 4) ctx.fillStyle = COLORS.sand2;
+                else if (cell === 5) ctx.fillStyle = COLORS.sand3;
+                else if (cell === 6) ctx.fillStyle = COLORS.food;
+                else if (cell === 7) ctx.fillStyle = COLORS.water;
+
+                ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            }
+        }
+
+        // Render Rain drops if raining
+        if (isRaining) {
+            ctx.fillStyle = COLORS.water;
+            for (let y = 2; y < HEIGHT - 2; y++) {
+                for (let x = 2; x < WIDTH - 2; x++) {
+                    if ((y + globalStep + x * 3) % 7 === 0 && grid[y][x] === 0) {
+                        ctx.fillRect(x * CELL_SIZE + 3, y * CELL_SIZE, 3, 6);
+                    }
+                }
+            }
+        }
+
+        // Render Queen
+        let qx = Math.round(queen.x);
+        let qy = Math.round(queen.y);
+        ctx.fillStyle = COLORS.queen;
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText('Q', qx * CELL_SIZE + 1, qy * CELL_SIZE + 9);
+
+        // Render Ants
+        ants.forEach(ant => {
+            let ax = Math.round(ant.x);
+            let ay = Math.round(ant.y);
+            if (ant.stagnant) ctx.fillStyle = COLORS.antStagnant;
+            else if (ant.hasFood) ctx.fillStyle = COLORS.antFood;
+            else if (ant.carrying !== null) ctx.fillStyle = COLORS.antCarrying;
+            else ctx.fillStyle = COLORS.antNormal;
+
+            let char = ant.stagnant ? 'z' : (ant.hasFood ? '★' : (ant.carrying !== null ? 'ø' : 'w'));
+            ctx.fillText(char, ax * CELL_SIZE + 1, ay * CELL_SIZE + 9);
+        });
+    }
+
+    function gameLoop() {
+        update();
+        render();
+        setTimeout(gameLoop, 30);
+    }
+
+    gameLoop();
+</script>
+
+</body>
+</html>
