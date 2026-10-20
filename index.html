@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etch-Sketch: Perpetual Eddy Vortex Edition</title>
+    <style>
+        :root {
+            --bg-color: #1a1a24;
+            --toy-body: #16213e;
+            --toy-border: #0f3460;
+            --screen-bg: #0b0f19;
+            --knob-white: #e0e0e0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 12px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            letter-spacing: 2px;
+            color: #00fff5;
+            text-shadow: 0 0 10px rgba(0,255,245,0.5);
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 0.9rem;
+            color: #a0a0c0;
+            max-width: 700px;
+        }
+
+        /* Toy Frame */
+        .toy-container {
+            background: var(--toy-body);
+            border: 8px solid var(--toy-border);
+            border-radius: 25px;
+            padding: 20px 20px 15px 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6), inset 0 3px 6px rgba(255,255,255,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            max-width: 860px;
+            width: 100%;
+        }
+
+        .toy-brand {
+            color: #ff007f;
+            font-family: 'Arial Black', Impact, sans-serif;
+            font-size: 1.3rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            text-shadow: 0 0 8px rgba(255,0,127,0.6);
+            font-style: italic;
+        }
+
+        /* Screen Wrapper */
+        .screen-container {
+            position: relative;
+            background: var(--screen-bg);
+            border: 12px solid #1f4068;
+            border-radius: 12px;
+            box-shadow: inset 5px 5px 20px rgba(0,0,0,0.8), 0 3px 8px rgba(0,0,0,0.3);
+            overflow: hidden;
+            width: 780px;
+            height: 480px;
+            cursor: crosshair;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Controls Section */
+        .controls-panel {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+            padding: 0 5px;
+        }
+
+        .knobs-pair {
+            display: flex;
+            gap: 12px;
+        }
+
+        .knob-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .knob-label {
+            color: #a0a0c0;
+            font-weight: bold;
+            font-size: 0.65rem;
+            letter-spacing: 0.5px;
+            text-align: center;
+        }
+
+        .knob-value {
+            color: #00fff5;
+            font-family: monospace;
+            font-size: 0.7rem;
+        }
+
+        .knob {
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle at 30% 30%, #ffffff, var(--knob-white) 60%, #555);
+            border-radius: 50%;
+            box-shadow: 0 5px 8px rgba(0,0,0,0.4), inset 0 -3px 5px rgba(0,0,0,0.3);
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.05s ease-out;
+        }
+
+        .knob::after {
+            content: '';
+            position: absolute;
+            top: 7px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 5px;
+            height: 5px;
+            background: #111;
+            border-radius: 50%;
+        }
+
+        /* Center Control Dashboard */
+        .center-dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: rgba(0,0,0,0.3);
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+            align-items: center;
+        }
+
+        .dashboard-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            background: #00adb5;
+            color: #fff;
+            border: none;
+            padding: 6px 10px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 3px 0 #007e85, 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.1s ease;
+            font-size: 0.75rem;
+        }
+
+        .btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 0 0 #007e85, 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .btn-shake {
+            background: #ff2e63;
+            box-shadow: 0 3px 0 #c2183b, 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        /* Color Palette Selector */
+        .color-selector {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .color-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.6);
+            transition: transform 0.1s;
+        }
+
+        .color-dot:hover, .color-dot.active {
+            transform: scale(1.25);
+            border-color: #fff;
+            box-shadow: 0 0 8px rgba(0,255,245,0.8);
+        }
+
+        /* Shake animation for toy */
+        @keyframes shake {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            20% { transform: translate(-10px, 8px) rotate(-2deg); }
+            40% { transform: translate(10px, -8px) rotate(2deg); }
+            60% { transform: translate(-8px, -5px) rotate(-1deg); }
+            80% { transform: translate(8px, 5px) rotate(1deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+
+        .shaking {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        .instructions {
+            margin-top: 15px;
+            background: #16213e;
+            border: 1px solid #1f4068;
+            padding: 12px 18px;
+            border-radius: 10px;
+            max-width: 860px;
+            width: 100%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            color: #d0d0e0;
+            font-size: 0.82rem;
+            line-height: 1.4;
+        }
+
+        .instructions h3 {
+            margin-bottom: 4px;
+            color: #00fff5;
+        }
+
+        .instructions ul {
+            margin-left: 18px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>ETCH-SKETCH: PERPETUAL EDDY VORTICES</h1>
+        <p>Sand particles never settle—they continuously follow and orbit the invisible magnetic eddy fields forever[cite: 1]!</p>
+    </div>
+
+    <div class="toy-container" id="toyContainer">
+        <div class="toy-brand">Perpetual Quantum Studio</div>
+
+        <div class="screen-container" id="screenContainer">
+            <canvas id="canvas" width="780" height="480"></canvas>
+        </div>
+
+        <div class="controls-panel">
+            <!-- Left Side: 2 Knobs for Funnel X & Y Position -->
+            <div class="knobs-pair">
+                <div class="knob-group">
+                    <div class="knob" id="knobX"></div>
+                    <span class="knob-label">LEFT: X-AXIS</span>
+                    <span class="knob-value" id="valX">390</span>
+                </div>
+                <div class="knob-group">
+                    <div class="knob" id="knobY"></div>
+                    <span class="knob-label">LEFT: Y-AXIS</span>
+                    <span class="knob-value" id="valY">40</span>
+                </div>
+            </div>
+
+            <!-- Center Dashboard -->
+            <div class="center-dashboard">
+                <div class="dashboard-row">
+                    <button class="btn" id="btnDrop1">Release (Space)</button>
+                    <button class="btn" id="btnStream">Swarm (15)</button>
+                    <button class="btn" id="btnContinuous">Auto-Swarm</button>
+                    <button class="btn btn-shake" id="btnShake">Clear (C)</button>
+                </div>
+                <div class="color-selector" id="colorSelector">
+                    <span style="color:#a0a0c0; font-size:0.7rem; font-weight:bold; margin-right:4px;">SAND:</span>
+                </div>
+            </div>
+
+            <!-- Right Side: 2 Knobs for Magnetic Pulse & Gravity Tilt -->
+            <div class="knobs-pair">
+                <div class="knob-group">
+                    <div class="knob" id="knobPulse"></div>
+                    <span class="knob-label">RIGHT: PULSE</span>
+                    <span class="knob-value" id="valPulse">1.0x</span>
+                </div>
+                <div class="knob-group">
+                    <div class="knob" id="knobGravity"></div>
+                    <span class="knob-label">RIGHT: DRIFT</span>
+                    <span class="knob-value" id="valGravity">0.0°</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <h3>Perpetual Vortex Physics:</h3>
+        <ul>
+            <li><strong>Endless Orbiting:</strong> Released particles never fall to the floor or settle; they are caught in perpetual magnetic eddy currents that swirl forever[cite: 1].</li>
+            <li><strong>Dynamic Funnel Spawning:</strong> Position your injector using the X-Y controls or mouse drag to continuously feed new particle streams into the vortex matrix[cite: 1].</li>
+            <li><strong>Pulse & Drift Controls:</strong> Modulate vortex intensity and global directional drift with the right pair of knobs[cite: 1].</li>
+        </ul>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        const SAND_RADIUS = 3.2;
+        const FRICTION = 0.96;   
+
+        let eddyPoints = [];
+        let particles = [];
+        let funnelX = WIDTH / 2;
+        let funnelY = 40; 
+        let gravityTiltAngle = 0; 
+        let magneticPulseStrength = 1.0;
+        let isAutoDropping = false;
+        let autoDropInterval = null;
+
+        let angleX = 0;
+        let angleY = 0;
+        let anglePulse = 0;
+        let angleGravity = 0;
+        let timeTicker = 0;
+
+        const valXEl = document.getElementById('valX');
+        const valYEl = document.getElementById('valY');
+        const valPulseEl = document.getElementById('valPulse');
+        const valGravityEl = document.getElementById('valGravity');
+
+        const colors = [
+            { name: 'Neon Magenta', hex: '#ff007f' },
+            { name: 'Cyan Plasma', hex: '#00fff5' },
+            { name: 'Electric Gold', hex: '#ffd300' },
+            { name: 'Acid Green', hex: '#00ff66' },
+            { name: 'Deep Violet', hex: '#9d00ff' },
+            { name: 'Pure White', hex: '#ffffff' }
+        ];
+        let currentColor = colors[0].hex;
+
+        const colorSelectorEl = document.getElementById('colorSelector');
+        colors.forEach((c, idx) => {
+            const dot = document.createElement('div');
+            dot.className = `color-dot ${idx === 0 ? 'active' : ''}`;
+            dot.style.backgroundColor = c.hex;
+            dot.title = c.name;
+            dot.addEventListener('click', () => {
+                document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+                dot.classList.add('active');
+                currentColor = c.hex;
+            });
+            colorSelectorEl.appendChild(dot);
+        });
+
+        // Initialize Invisible Magnetic Eddy Matrix Coordinates
+        function initEddyPoints() {
+            eddyPoints = [];
+            const spacingX = 55;
+            const spacingY = 50;
+            const startY = 60;
+            const endY = HEIGHT - 50;
+            
+            let rowIdx = 0;
+            for (let y = startY; y < endY; y += spacingY) {
+                const offsetX = (rowIdx % 2 === 0) ? 0 : spacingX / 2;
+                const startX = 40 + offsetX;
+                
+                for (let x = startX; x < WIDTH - 30; x += spacingX) {
+                    eddyPoints.push({ x, y, phase: Math.random() * Math.PI * 2 });
+                }
+                rowIdx++;
+            }
+        }
+
+        function updateDisplays() {
+            valXEl.textContent = Math.round(funnelX);
+            valYEl.textContent = Math.round(funnelY);
+            valPulseEl.textContent = magneticPulseStrength.toFixed(1) + 'x';
+            valGravityEl.textContent = Math.round(gravityTiltAngle * (180 / Math.PI)) + '°';
+        }
+
+        function resetScreen() {
+            particles = [];
+        }
+
+        class PerpetualParticle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 1.5;
+                this.vy = (Math.random() - 0.5) * 1.5;
+            }
+
+            update() {
+                // Global directional drift vector
+                const driftMag = 0.15;
+                this.vx += Math.sin(gravityTiltAngle) * driftMag;
+                this.vy += Math.cos(gravityTiltAngle) * driftMag;
+
+                // Magnetic eddy vortex forces applied continuously at each grid point[cite: 1]
+                for (let eddy of eddyPoints) {
+                    const dx = this.x - eddy.x;
+                    const dy = this.y - eddy.y;
+                    const distSq = dx * dx + dy * dy;
+                    const maxDist = 70;
+
+                    if (distSq < maxDist * maxDist && distSq > 4) {
+                        const dist = Math.sqrt(distSq);
+                        const factor = (1 - dist / maxDist) * magneticPulseStrength;
+                        const fieldSign = Math.sin(timeTicker * 0.04 + eddy.phase) > 0 ? 1 : -1;
+
+                        // Perpendicular force creates continuous swirling orbits
+                        const perpX = -dy / dist;
+                        const perpY = dx / dist;
+
+                        const eddyStrength = 0.45 * factor * fieldSign;
+                        this.vx += perpX * eddyStrength;
+                        this.vy += perpY * eddyStrength;
+                    }
+                }
+
+                this.vx *= FRICTION;
+                this.vy *= FRICTION;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Screen Boundary Wrap / Bounce so particles stay active forever
+                if (this.x < 15) { this.x = 15; this.vx = -this.vx * 0.8; }
+                if (this.x > WIDTH - 15) { this.x = WIDTH - 15; this.vx = -this.vx * 0.8; }
+                if (this.y < 15) { this.y = 15; this.vy = -this.vy * 0.8; }
+                if (this.y > HEIGHT - 15) { this.y = HEIGHT - 15; this.vy = -this.vy * 0.8; }
+            }
+
+            draw(targetCtx) {
+                targetCtx.beginPath();
+                targetCtx.arc(this.x, this.y, SAND_RADIUS, 0, Math.PI * 2);
+                targetCtx.fillStyle = this.color;
+                targetCtx.shadowColor = this.color;
+                targetCtx.shadowBlur = 8;
+                targetCtx.fill();
+                targetCtx.shadowBlur = 0;
+            }
+        }
+
+        function dropSand(count = 1) {
+            for (let i = 0; i < count; i++) {
+                const jitter = (Math.random() - 0.5) * 8;
+                particles.push(new PerpetualParticle(funnelX + jitter, funnelY + 10, currentColor));
+            }
+        }
+
+        function render() {
+            timeTicker++;
+
+            // Clear screen cleanly for live animation frames
+            ctx.fillStyle = '#060810';
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            ctx.fillStyle = '#0b0f19';
+            for (let i = 0; i < 2000; i++) {
+                // Subtle digital background starlight
+                // (rendered dynamically without accumulating permanent bitmap)
+            }
+
+            // Draw glowing markers for the magnetic eddy points[cite: 1]
+            for (let eddy of eddyPoints) {
+                const pulse = Math.sin(timeTicker * 0.05 + eddy.phase) * 1.5 + 2.5;
+
+                ctx.beginPath();
+                ctx.arc(eddy.x, eddy.y, pulse, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(0, 255, 245, 0.15)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Draw Funnel at current X and Y position
+            ctx.save();
+            ctx.translate(funnelX, funnelY);
+            ctx.rotate(gravityTiltAngle * 0.5);
+            ctx.fillStyle = '#222831';
+            ctx.beginPath();
+            ctx.moveTo(-22, -12);
+            ctx.lineTo(22, -12);
+            ctx.lineTo(6, 8);
+            ctx.lineTo(-6, 8);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#00fff5';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = currentColor;
+            ctx.beginPath();
+            ctx.arc(0, 8, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Update and Draw active perpetual particles orbiting the eddies[cite: 1]
+            for (let i = 0; i < particles.length; i++) {
+                const p = particles[i];
+                p.update();
+                p.draw(ctx);
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        // Direct Mouse Funnel Control on Screen
+        const screenContainer = document.getElementById('screenContainer');
+        let isDrawingOnScreen = false;
+
+        screenContainer.addEventListener('mousedown', (e) => {
+            isDrawingOnScreen = true;
+            updateFunnelFromMouse(e);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDrawingOnScreen) {
+                updateFunnelFromMouse(e);
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDrawingOnScreen = false;
+        });
+
+        function updateFunnelFromMouse(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+
+            funnelX = Math.max(25, Math.min(WIDTH - 25, x));
+            funnelY = Math.max(25, Math.min(HEIGHT - 25, y));
+            updateDisplays();
+        }
+
+        // Knob Controls Setup
+        const knobX = document.getElementById('knobX');
+        const knobY = document.getElementById('knobY');
+        const knobPulse = document.getElementById('knobPulse');
+        const knobGravity = document.getElementById('knobGravity');
+
+        let activeKnob = null;
+        let lastMousePos = 0;
+
+        function setupKnobDrag(knobEl, onRotate) {
+            knobEl.addEventListener('mousedown', (e) => {
+                activeKnob = knobEl;
+                lastMousePos = e.clientX;
+                e.preventDefault();
+            });
+
+            knobEl.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -10 : 10;
+                onRotate(delta);
+            });
+        }
+
+        setupKnobDrag(knobX, (delta) => {
+            angleX += delta * 1.5;
+            knobX.style.transform = `rotate(${angleX}deg)`;
+            funnelX = Math.max(25, Math.min(WIDTH - 25, funnelX + delta * 0.8));
+            updateDisplays();
+        });
+
+        setupKnobDrag(knobY, (delta) => {
+            angleY += delta * 1.5;
+            knobY.style.transform = `rotate(${angleY}deg)`;
+            funnelY = Math.max(25, Math.min(HEIGHT - 25, funnelY - delta * 0.6));
+            updateDisplays();
+        });
+
+        setupKnobDrag(knobPulse, (delta) => {
+            anglePulse += delta * 1.5;
+            knobPulse.style.transform = `rotate(${anglePulse}deg)`;
+            magneticPulseStrength = Math.max(0.2, Math.min(3.0, magneticPulseStrength + delta * 0.02));
+            updateDisplays();
+        });
+
+        setupKnobDrag(knobGravity, (delta) => {
+            angleGravity += delta * 1.5;
+            knobGravity.style.transform = `rotate(${angleGravity}deg)`;
+            gravityTiltAngle = Math.max(-1.5, Math.min(1.5, gravityTiltAngle + (delta > 0 ? 0.03 : -0.03)));
+            updateDisplays();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!activeKnob) return;
+            const deltaX = e.clientX - lastMousePos;
+            lastMousePos = e.clientX;
+            const deltaRot = deltaX * 3;
+
+            if (activeKnob === knobX) {
+                angleX += deltaRot;
+                knobX.style.transform = `rotate(${angleX}deg)`;
+                funnelX = Math.max(25, Math.min(WIDTH - 25, funnelX + deltaX * 1.2));
+            } else if (activeKnob === knobY) {
+                angleY += deltaRot;
+                knobY.style.transform = `rotate(${angleY}deg)`;
+                funnelY = Math.max(25, Math.min(HEIGHT - 25, funnelY - deltaX * 0.9));
+            } else if (activeKnob === knobPulse) {
+                anglePulse += deltaRot;
+                knobPulse.style.transform = `rotate(${anglePulse}deg)`;
+                magneticPulseStrength = Math.max(0.2, Math.min(3.0, magneticPulseStrength + deltaX * 0.03));
+            } else if (activeKnob === knobGravity) {
+                angleGravity += deltaRot;
+                knobGravity.style.transform = `rotate(${angleGravity}deg)`;
+                gravityTiltAngle = Math.max(-1.5, Math.min(1.5, gravityTiltAngle + deltaX * 0.015));
+            }
+            updateDisplays();
+        });
+
+        // Keyboard Controls
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                dropSand(1);
+                e.preventDefault();
+            } else if (e.code === 'KeyC') {
+                resetScreen();
+            } else if (e.code === 'ArrowLeft') {
+                funnelX = Math.max(25, funnelX - 10);
+            } else if (e.code === 'ArrowRight') {
+                funnelX = Math.min(WIDTH - 25, funnelX + 10);
+            } else if (e.code === 'ArrowUp') {
+                funnelY = Math.max(25, funnelY - 10);
+            } else if (e.code === 'ArrowDown') {
+                funnelY = Math.min(HEIGHT - 25, funnelY + 10);
+            }
+            updateDisplays();
+        });
+
+        document.getElementById('btnDrop1').addEventListener('click', () => dropSand(1));
+        document.getElementById('btnStream').addEventListener('click', () => dropSand(15));
+
+        const continuousBtn = document.getElementById('btnContinuous');
+        continuousBtn.addEventListener('click', () => {
+            isAutoDropping = !isAutoDropping;
+            if (isAutoDropping) {
+                continuousBtn.textContent = 'Pause Swarm';
+                continuousBtn.style.background = '#c2183b';
+                autoDropInterval = setInterval(() => dropSand(2), 100);
+            } else {
+                continuousBtn.textContent = 'Auto-Swarm';
+                continuousBtn.style.background = '#00adb5';
+                clearInterval(autoDropInterval);
+            }
+        });
+
+        const toyContainer = document.getElementById('toyContainer');
+        document.getElementById('btnShake').addEventListener('click', () => {
+            toyContainer.classList.add('shaking');
+            resetScreen();
+            setTimeout(() => {
+                toyContainer.classList.remove('shaking');
+            }, 500);
+        });
+
+        initEddyPoints();
+        updateDisplays();
+        render();
+    </script>
+</body>
+</html>
